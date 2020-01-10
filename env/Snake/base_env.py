@@ -10,10 +10,11 @@ class BaseEnv(gym.Env):
     """
     A snake environment.
     """
-    def __init__(self, high=50, width=40, end_step=10000):
+    def __init__(self, high=50, width=40, end_step=10000, additional_reward_step=100):
         self.high = high
         self.width = width
         self.end_step = end_step
+        self.additional_reward_step = additional_reward_step
         if high < 10 or width < 10 :
             raise Exception('地圖的高度與寬度必須 > 10')
 
@@ -78,6 +79,8 @@ class BaseEnv(gym.Env):
             return -1
         elif target_obj == MapEnum.food:
             return 1
+        elif self.current_step % self.additional_reward_step == 0:
+            return 0.1
         else:
             return 0
 
