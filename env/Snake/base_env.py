@@ -10,10 +10,11 @@ class BaseEnv(gym.Env):
     """
     A snake environment.
     """
-    def __init__(self, high=50, width=40, end_step=10000, additional_reward_step=100):
+    def __init__(self, high=50, width=40, end_step=10000, additional_reward_step=100, decadent_punishment_step=1000):
         self.high = high
         self.width = width
         self.end_step = end_step
+        self.decadent_punishment_step = decadent_punishment_step
         self.additional_reward_step = additional_reward_step
         if high < 10 or width < 10 :
             raise Exception('地圖的高度與寬度必須 > 10')
@@ -26,6 +27,7 @@ class BaseEnv(gym.Env):
         self.snake_position = utils.generate_snake()
         self.reflash_map(generate_food=True)
         self.current_step = 0
+        self.decadent_step = 0
         self.previous_action = 1
 
         return utils.map_to_obs(self.map_data, self.obs_shape)
@@ -44,6 +46,7 @@ class BaseEnv(gym.Env):
         obs = utils.map_to_obs(self.map_data, self.obs_shape)
         self.previous_action = action
         self.current_step += 1
+        self.decadent_step += 1
 
         return obs, reward, done, { }
 
@@ -78,8 +81,11 @@ class BaseEnv(gym.Env):
         elif target_obj == MapEnum.wall:
             return -1
         elif target_obj == MapEnum.food:
+            self.decadent_step = 0
             return 1
-        elif self.current_step % self.additional_reward_step == 0:
+        elif self.decadent_step % self.decadent_punishment_step == 0 and self.decadent_step != 0:
+            return -0.5
+        elif self.current_step % self.additional_reward_step == 0 and self.current_step != 0:
             return 0.1
         else:
             return 0
