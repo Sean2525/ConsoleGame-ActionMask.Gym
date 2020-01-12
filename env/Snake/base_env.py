@@ -77,7 +77,7 @@ class BaseEnv(gym.Env):
         elif target_obj == MapEnum.wall:
             return -1
         elif target_obj == MapEnum.food:
-            return 1
+            return 2
         else:
             return 0
 
