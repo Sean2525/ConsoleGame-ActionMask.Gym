@@ -16,14 +16,18 @@ def generate_snake():
     snake_position = [[3, 1], [2, 1], [1, 1]]
     return snake_position
 
-def generate_food(map_data):
+def generate_food(map_data, amount):
+    foods = []
     road_coordinate = np.where(map_data == MapEnum.road.value)
-    food_position = rnd.randint(0, len(road_coordinate[0]) - 1)
-    return [road_coordinate[0][food_position], road_coordinate[1][food_position]]
+    for i in range(amount):
+        food_position = rnd.randint(0, len(road_coordinate[0]) - 1)
+        foods.append([road_coordinate[0][food_position], road_coordinate[1][food_position]])
+    return foods
 
-def reflash_map(map_data, snake_position, food_position=None):
+def reflash_map(map_data, snake_position, foods_position=None):
     if food_position is not None:
-        map_data[food_position[0], food_position[1]] = MapEnum.food.value
+        for food_position in foods_position
+            map_data[food_position[0], food_position[1]] = MapEnum.food.value
         return map_data
 
     map_data[map_data == MapEnum.head.value ] = ' '
