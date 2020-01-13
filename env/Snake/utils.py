@@ -25,8 +25,8 @@ def generate_food(map_data, amount):
     return foods
 
 def reflash_map(map_data, snake_position, foods_position=None):
-    if food_position is not None:
-        for food_position in foods_position
+    if foods_position is not None:
+        for food_position in foods_position:
             map_data[food_position[0], food_position[1]] = MapEnum.food.value
         return map_data
 

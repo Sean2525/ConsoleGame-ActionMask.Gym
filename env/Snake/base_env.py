@@ -101,5 +101,5 @@ class BaseEnv(gym.Env):
         self.map_data = utils.generate_map(self.high, self.width)
         self.map_data = utils.reflash_map(self.map_data, self.snake_position)
         if generate_food:
-            self.food_position = utils.generate_food(self.map_data)
+            self.food_position = utils.generate_food(self.map_data, 3)
         self.map_data = utils.reflash_map(self.map_data, self.snake_position, self.food_position)
