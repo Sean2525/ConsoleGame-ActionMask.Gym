@@ -16,7 +16,7 @@ env = DummyVecEnv([lambda: ActionMaskEnv()])
 env = VecFrameStack(env, n_stack=3)
 
 model = PPO2(MlpPolicy, env, verbose=0, nminibatches=1, tensorboard_log=tensorboard_folder, ent_coef=0.5)
-model.learn(total_timesteps=25000000)
+model.learn(total_timesteps=10000000)
 
 model.save("snake_action_mask")
 del model
