@@ -12,7 +12,7 @@ tensorboard_folder = './tensorboard/Snake/action_mask/'
 if not os.path.isdir(tensorboard_folder):
     os.makedirs(tensorboard_folder)
 
-env = DummyVecEnv([lambda: ActionMaskEnv()])
+env = DummyVecEnv([lambda: ActionMaskEnv(10, 10)])
 env = VecFrameStack(env, n_stack=3)
 
 model = PPO2(MlpPolicy, env, verbose=0, nminibatches=1, tensorboard_log=tensorboard_folder, ent_coef=0.5)
