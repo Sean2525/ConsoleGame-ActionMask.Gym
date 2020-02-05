@@ -1,5 +1,6 @@
 import numpy as np
 import random as rnd
+import math
 
 from env.Snake.map_define import MapEnum, MapObsEnum
 
@@ -113,3 +114,9 @@ def get_target_position(snake_head_position, action):
         target_position = [snake_head_position[0], snake_head_position[1] + 1]
 
     return target_position
+
+def get_distance_from_food(map_data, food_position):
+    snake_head_position = get_snake_head_position(map_data)
+    distance = math.sqrt((snake_head_position[0] - food_position[0]) ** 2 + (snake_head_position[1] - food_position[1]) ** 2)
+
+    return distance

@@ -48,10 +48,10 @@ class BaseEnv(gym.Env):
             action = self.previous_action
 
         target_obj = utils.get_target_obj(self.map_data, action)
-        reward = self.get_reward(target_obj)
         done = self.is_done(target_obj)
 
         self.move_snake(action, target_obj)
+        reward = self.get_reward(target_obj)
         obs = utils.map_to_obs(self.map_data, self.obs_shape)
         self.previous_action = action
         self.current_step += 1
@@ -104,6 +104,8 @@ class BaseEnv(gym.Env):
             return -1
         elif target_obj == MapEnum.food:
             return 1
+        elif utils.get_distance_from_food(self.map_data, self.food_position):
+            return 0.5
         else:
             return 0
 
