@@ -1,5 +1,4 @@
 from env.Pacman.utils import manhattanDistance, nearestPoint
-from env.Pacman.map import Map
 from env.Pacman.map_define import MapObsEnum, MapEnum
 import numpy as np
 
@@ -29,6 +28,7 @@ class Configuration:
     The convention for positions, like a graph, is that (0,0) is the lower left corner, x increases
     horizontally and y increases vertically.  Therefore, north is the direction of increasing y, or (0,1).
     """
+
     def __init__(self, pos, direction):
         self.pos = pos
         self.direction = direction
@@ -44,7 +44,7 @@ class Configuration:
         return x == int(x) and y == int(y)
 
     def __eq__(self, other):
-        if other == None:
+        if other is None:
             return False
         return (self.pos == other.pos and self.direction == other.direction)
 
@@ -120,7 +120,7 @@ class Actions:
         return (dx * speed, dy * speed)
 
     @staticmethod
-    def getPossibleActions(agentState, walls):
+    def getPossibleActions(agentState, walls, ghosts=[]):
         possible = []
         x, y = agentState.getPosition()
         x_int, y_int = int(x + 0.5), int(y + 0.5)
@@ -134,7 +134,15 @@ class Actions:
             next_y = y_int + dy
             next_x = x_int + dx
             if not walls[next_x][next_y]:
-                possible.append(dir)
+                if agentState.isPacman:
+                    for ghostState in ghosts:
+                        if (next_x,
+                            next_y) == nearestPoint(ghostState.configuration.pos) and ghostState.scaredTimer <= 1:
+                            break
+                    else:
+                        possible.append(dir)
+                else:
+                    possible.append(dir)
 
         return possible
 
@@ -150,8 +158,7 @@ class GhostRules:
         """
         agentState = state.getGhostState(ghostIndex)
 
-        possibleActions = Actions.getPossibleActions(agentState,
-                                                     state.layout.walls)
+        possibleActions = Actions.getPossibleActions(agentState, state.layout.walls)
 
         reverse = Actions.reverseDirection(agentState.getDirection())
         if Directions.STOP in possibleActions:
@@ -172,21 +179,18 @@ class GhostRules:
         if ghostState.scaredTimer > 0:
             speed /= 2.0
         vector = Actions.directionToVector(action, speed)
-        ghostState.configuration = ghostState.configuration.generateSuccessor(
-            vector)
+        ghostState.configuration = ghostState.configuration.generateSuccessor(vector)
 
     @staticmethod
     def decrementTimer(ghostState):
         timer = ghostState.scaredTimer
         if timer == 1:
-            ghostState.configuration.pos = nearestPoint(
-                ghostState.configuration.pos)
+            ghostState.configuration.pos = nearestPoint(ghostState.configuration.pos)
         ghostState.scaredTimer = max(0, timer - 1)
 
     @staticmethod
     def canKill(pacmanPosition, ghostPosition):
-        return manhattanDistance(ghostPosition,
-                                 pacmanPosition) <= COLLISION_TOLERANCE
+        return manhattanDistance(ghostPosition, pacmanPosition) <= COLLISION_TOLERANCE
 
     @staticmethod
     def checkDeath(state, agentIndex):
@@ -223,12 +227,18 @@ class PacmanRules:
     PACMAN_SPEED = 1.0
 
     @staticmethod
-    def getLegalActions(state):
+    def getLegalActions(state, has_ghost=False):
         """
         Returns a list of possible actions.
         """
-        return Actions.getPossibleActions(state.getPacmanState().configuration,
-                                          state.layout.walls)
+
+        if has_ghost:
+            return Actions.getPossibleActions(
+                state.getPacmanState(), state.layout.walls,
+                [state.getGhostState(i) for i in range(1, state.getNumAgents())]
+            )
+        else:
+            return Actions.getPossibleActions(state.getPacmanState(), state.layout.walls)
 
     @staticmethod
     def applyAction(state, action):
@@ -247,8 +257,7 @@ class PacmanRules:
 
         # Update Configuration
         vector = Actions.directionToVector(action, PacmanRules.PACMAN_SPEED)
-        pacmanState.configuration = pacmanState.configuration.generateSuccessor(
-            vector)
+        pacmanState.configuration = pacmanState.configuration.generateSuccessor(vector)
 
         # Eat
         next = pacmanState.configuration.getPosition()
@@ -279,6 +288,7 @@ class PacmanRules:
 
 
 class AgentState:
+
     def __init__(self, startConfiguration, isPacman=False):
         self.start = startConfiguration
         self.isPacman = isPacman
@@ -292,7 +302,7 @@ class AgentState:
             return "Ghost: " + str(self.configuration)
 
     def __eq__(self, other):
-        if other == None:
+        if other is None:
             return False
         return self.configuration == other.configuration and self.scaredTimer == other.scaredTimer
 
@@ -303,7 +313,7 @@ class AgentState:
         return state
 
     def getPosition(self):
-        if self.configuration == None:
+        if self.configuration is None:
             return None
         return self.configuration.getPosition()
 
@@ -312,15 +322,15 @@ class AgentState:
 
 
 class GameState:
+
     def __init__(self, layout):
         self.layout = layout
         self.agentStates = [
-            AgentState(Configuration(pos, Directions.STOP), isPacman)
-            for isPacman, pos in layout.agentPositions
+            AgentState(Configuration(pos, Directions.STOP), isPacman) for isPacman, pos in layout.agentPositions
         ]
         self.score = 0
         self.scoreChange = 0
-        self._Win = False
+        self._win = False
         self._lose = False
 
     def getGhostState(self, agentIndex):
@@ -341,12 +351,15 @@ class GameState:
     def getPacmanPosition(self):
         return self.agentStates[0].getPosition()
 
+    def getPacmanDirection(self):
+        return self.agentStates[0].getDirection()
+
     def deepCopy(self):
         layout = self.layout.deepCopy()
         state = GameState(layout)
         state.score = self.score
         state.scoreChange = self.scoreChange
-        state._win = self._Win
+        state._win = self._win
         state._lose = self._lose
         state.agentStates = []
         for agentState in self.agentStates:
@@ -357,17 +370,12 @@ class GameState:
     def reset(self):
         self.layout.reset()
         self.agentStates = [
-            AgentState(Configuration(pos, Directions.STOP), isPacman)
-            for isPacman, pos in layout.agentPositions
+            AgentState(Configuration(pos, Directions.STOP), isPacman) for isPacman, pos in self.layout.agentPositions
         ]
         self.score = 0
         self.scoreChange = 0
-        self._Win = False
+        self._win = False
         self._lose = False
-        return self.map_cache
-
-    def getLayout(self):
-        return self.layout
 
     def getNumFood(self):
         return self.layout.food.count()
@@ -376,7 +384,7 @@ class GameState:
         return self.layout.capsules
 
     def isWin(self):
-        return self._Win
+        return self._win
 
     def isLose(self):
         return self._lose
@@ -384,7 +392,7 @@ class GameState:
     def getNumAgents(self):
         return len(self.agentStates)
 
-    def getLegalActions(self, agentIndex=0):
+    def getLegalActions(self, agentIndex=0, has_ghost=False):
         """
         Returns the legal actions for the agent specified.
         """
@@ -393,7 +401,7 @@ class GameState:
             return []
 
         if agentIndex == 0:  # Pacman is moving
-            return PacmanRules.getLegalActions(self)
+            return PacmanRules.getLegalActions(self, has_ghost)
         else:
             return GhostRules.getLegalActions(self, agentIndex)
 
@@ -401,6 +409,7 @@ class GameState:
         """
         Returns the successor state after the specified agent takes the action.
         """
+        self.scoreChange = 0
         # Check that successors exist
         if self.isWin() or self.isLose():
             raise Exception('Can\'t generate a successor of a terminal state.')
@@ -425,9 +434,106 @@ class GameState:
 
         return self
 
+    def toObservationMatrix(self):
+        """
+        Convert map data to neural network input format.
+        """
+
+        def getWallMatrix(state):
+            """ Return matrix with wall coordinates set to 1 """
+            width, height = state.layout.width, state.layout.height
+            grid = state.layout.walls
+            matrix = np.zeros((height, width), dtype=np.int8)
+            for i in range(grid.height):
+                for j in range(grid.width):
+                    # Put cell vertically reversed in matrix
+                    cell = 1 if grid[j][i] else 0
+                    matrix[-1 - i][j] = cell
+            return matrix
+
+        def getPacmanMatrix(state):
+            """ Return matrix with pacman coordinates set to 1 """
+            width, height = state.layout.width, state.layout.height
+            matrix = np.zeros((height, width), dtype=np.int8)
+
+            for agentState in state.agentStates:
+                if agentState.isPacman:
+                    pos = agentState.configuration.getPosition()
+                    cell = 1
+                    matrix[-1 - int(pos[1])][int(pos[0])] = cell
+
+            return matrix
+
+        def getGhostMatrix(state):
+            """ Return matrix with ghost coordinates set to 1 """
+            width, height = state.layout.width, state.layout.height
+            matrix = np.zeros((height, width), dtype=np.int8)
+
+            for agentState in state.agentStates:
+                if not agentState.isPacman:
+                    if not agentState.scaredTimer > 0:
+                        pos = agentState.configuration.getPosition()
+                        cell = 1
+                        matrix[-1 - int(pos[1])][int(pos[0])] = cell
+
+            return matrix
+
+        def getScaredGhostMatrix(state):
+            """ Return matrix with ghost coordinates set to 1 """
+            width, height = state.layout.width, state.layout.height
+            matrix = np.zeros((height, width), dtype=np.int8)
+
+            for agentState in state.agentStates:
+                if not agentState.isPacman:
+                    if agentState.scaredTimer > 0:
+                        pos = agentState.configuration.getPosition()
+                        cell = 1
+                        matrix[-1 - int(pos[1])][int(pos[0])] = cell
+
+            return matrix
+
+        def getFoodMatrix(state):
+            """ Return matrix with food coordinates set to 1 """
+            width, height = state.layout.width, state.layout.height
+            grid = state.layout.food
+            matrix = np.zeros((height, width), dtype=np.int8)
+
+            for i in range(grid.height):
+                for j in range(grid.width):
+                    # Put cell vertically reversed in matrix
+                    cell = 1 if grid[j][i] else 0
+                    matrix[-1 - i][j] = cell
+
+            return matrix
+
+        def getCapsulesMatrix(state):
+            """ Return matrix with capsule coordinates set to 1 """
+            width, height = state.layout.width, state.layout.height
+            capsules = state.layout.capsules
+            matrix = np.zeros((height, width), dtype=np.int8)
+
+            for i in capsules:
+                # Insert capsule cells vertically reversed into matrix
+                matrix[-1 - i[1], i[0]] = 1
+
+            return matrix
+
+        observation = np.zeros((6, self.layout.height, self.layout.width), dtype=np.int8)
+
+        observation[0] = getWallMatrix(self)
+        observation[1] = getPacmanMatrix(self)
+        observation[2] = getGhostMatrix(self)
+        observation[3] = getScaredGhostMatrix(self)
+        observation[4] = getFoodMatrix(self)
+        observation[5] = getCapsulesMatrix(self)
+
+        observation = np.swapaxes(observation, 0, 2)
+
+        return observation
+
     def toObservation(self, shape):
         """
-        Convert map data to neural network input formate.
+        Convert map data to neural network input format.
 
         : param shape:      (obs_shape) 神經網路輸入的形狀
         """
@@ -440,14 +546,11 @@ class GameState:
         for agentState in self.agentStates:
             pos = agentState.configuration.getPosition()
             if agentState.isPacman:
-                map_data[-1 - int(pos[1])][int(
-                    pos[0])] = MapObsEnum.pacman.value
+                map_data[-1 - int(pos[1])][int(pos[0])] = MapObsEnum.pacman.value
             elif agentState.scaredTimer > 0:
-                map_data[-1 - int(pos[1])][int(
-                    pos[0])] = MapObsEnum.fleeghost.value
+                map_data[-1 - int(pos[1])][int(pos[0])] = MapObsEnum.fleeghost.value
             else:
-                map_data[-1 - int(pos[1])][int(
-                    pos[0])] = MapObsEnum.ghost.value
+                map_data[-1 - int(pos[1])][int(pos[0])] = MapObsEnum.ghost.value
 
         return np.reshape(map_data.astype(np.float16), shape)
 
@@ -464,11 +567,9 @@ class GameState:
             if agentState.isPacman:
                 map_data[-1 - int(pos[1])][int(pos[0])] = MapEnum.pacman.value
             elif agentState.scaredTimer > 0:
-                map_data[-1 - int(pos[1])][int(
-                    pos[0])] = MapEnum.fleeghost.value
+                map_data[-1 - int(pos[1])][int(pos[0])] = MapEnum.fleeghost.value
             else:
                 map_data[-1 - int(pos[1])][int(pos[0])] = MapEnum.ghost.value
 
-        out = [[str(map_data[y][x])[0] for x in range(layout.width)]
-               for y in range(layout.height)]
-        return '\n'.join([''.join(x) for x in out])
+        out = [[str(map_data[y][x])[0] for x in range(layout.width)] for y in range(layout.height)]
+        return '\n'.join([' '.join(x) for x in out])
